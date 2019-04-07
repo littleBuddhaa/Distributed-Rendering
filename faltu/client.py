@@ -29,8 +29,6 @@ with open('received_file.blend', 'wb') as f:
         if not data:
             break
         f.write(data)
-
-
         
 f.close()
 
