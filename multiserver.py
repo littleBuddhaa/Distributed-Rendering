@@ -69,10 +69,10 @@ def on_new_client(clientsocket,addr,filename,mynum,waittime):
     ########    print( i,j)
     while(flag):
         if(file_rec_count == count):
-            s , e = jobscheduler(mynum)
+            l = jobscheduler(mynum)
         
-            clientsocket.send(str(s))
-            clientsocket.send(str(e))
+            clientsocket.send(str(l[0]))
+            clientsocket.send(str(l[1]))
             flag =0
     clientsocket.close()
 
@@ -93,8 +93,8 @@ def jobscheduler(mynum):
         else:
             end = Tframes
     
-    print(str(start) + str(end))
-    return start, end
+    print(str(start) +" " + str(end))
+    return [start, end]
 
 
 

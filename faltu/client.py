@@ -24,7 +24,7 @@ def getCPUper():
     
 def recvFile(fileSize):
     s.send("SEND")
-    with open('received_file.py', 'wb') as f:
+    with open('received_file.blend', 'wb') as f:
         print 'file opened'
         data = s.recv(1024)
         #print(data)
@@ -78,6 +78,11 @@ def getRAM(): #ram in MB
 #def flush(self):
     #self.buffer+=(BUFFER_SIZE-len(self.buffer)%BUFFER_SIZE)*"\x00"
 
+def goRender(start , end):
+    
+    subprocess.call(['blender', '-b' ,'received_file.blend', '-o' ,'//render_','-s',str(start), '-e' , str(end),'-F', 'PNG' ,'-x' ,'1', '-a'])
+
+     
 
 cpu = getCPUper()
 processors = getProc()
@@ -100,8 +105,7 @@ s.send('Got')
 start = s.recv(1024) #start param
 end = s.recv(1024) # end param
 print("start = " + start + " end = " + end)
-
-
+goRender(int(start), int(end)) #call rendering
  #connection closed
 
 s.close()
