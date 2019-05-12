@@ -13,8 +13,8 @@ def getCPUper():
     a = (d[-8])
     b  =(d[-7])
     c = (d[-5])
-    dd = (d[-4])
-    cpu = int(a)*10 + int(b)*1 + int(c)*0.1 + int(dd)*0.01
+    e = (d[-4])
+    cpu = int(a)*10 + int(b)*1 + int(c)*0.1 + int(e)*0.01
     #print 'My idle CPU percentage is '+ str(cpu)  
     return str(cpu); 
     
