@@ -3,20 +3,23 @@ import socket               # Import socket module
 import thread
 import time
 import os
+import subprocess
 
 cpulist = []
 count  =0
 file_rec_count=0 
 Tframes =0
+startEnd = []
+failiure = []
 st = 0
 en = 0
-def on_new_client(clientsocket,addr,filename,mynum,waittime,format):
+def on_new_client(clientsocket,addr,filename,mynum,waittime):
     #clientsocket.send(isfile)
     #if isfile =='y':
     global count
     global file_rec_count
     flag = 1
-    clientsocket.send(str(format))
+    #clientsocket.send(str(format))
     #frame_start = 0
     #frame_end = Tframes
     try:
@@ -64,17 +67,12 @@ def on_new_client(clientsocket,addr,filename,mynum,waittime,format):
         print 'Sent targate file'
         file_rec_count = file_rec_count + 1
 
-    
-    
-    
-
-
     #######for i,j in cpulist:
     ########    print( i,j)
     while(flag):
         if(file_rec_count == count):
             l = CPUjobscheduler(mynum)
-        
+            startEnd.append((l[0],l[1]))
             clientsocket.send(str(l[0]))
             clientsocket.send(str(l[1]))
             flag =0
@@ -82,22 +80,22 @@ def on_new_client(clientsocket,addr,filename,mynum,waittime,format):
     if(m[:] == "Failed"):
         print('Rendering failed at ' + str(mynum))
     else:
-        output = clientsocket.recv(1024)
+        output = clientsocket.recv(1024) #receiving rendered file name and its size
         out = output.split(" ")
-        print((out[1]) , " sd " , out[0])
+        print((out[1]) , " sd " , out[0]) # filename , filesize
     clientsocket.send("send")
     filename = 'outputs/'  +out[0]  
     with open(filename, 'wb') as f:
         print 'file opened'
         data = clientsocket.recv(1024)
         #print(data)
-        totalRecv = len(data)
-        print(totalRecv)
+        totalRecv = len(data) 
+        print(totalRecv) 
 
         f.write(data)
 
         while True:
-            if(totalRecv>= int(out[1])):
+            if(totalRecv>= int(out[1])): #stop receiving if length of file <= total received data
                 break
 
             data = clientsocket.recv(1024)
@@ -113,7 +111,7 @@ def on_new_client(clientsocket,addr,filename,mynum,waittime,format):
    
 
 
-def jobscheduler(mynum):
+def jobscheduler(mynum): # gives as equal as possible jobs , was used initially
     global Tframes
     global count
     if(Tframes%count==0):
@@ -137,20 +135,20 @@ def getMyWeight(cpuInfo):
     a = (float(cpuInfo[1][:])*float(cpuInfo[0][:])*float(cpuInfo[2][:]))/100000
     return int(a) 
 
-def CPUjobscheduler(mynum):
+def CPUjobscheduler(mynum): # schedules jobs on the basis of system configs
     global Tframes
     s =0
     for x  in cpulist:
-        s = s + int(x[1])
+        s = s + int(x[1]) #sum of all weights
     #print(s)
     #t = float(s*0.001)
 
-    t = float(Tframes/float(s))
+    t = float(Tframes/float(s)) #total frames/total weight
     print(t)
     #print(cpulist[mynum-1][1])
 
-    myShare = (t*float(cpulist[mynum-1][1]))
-    print("My share =" ,myShare)
+    myShare = (t*float(cpulist[mynum-1][1])) #(total frames/ total weight)*own weight
+    #print("My share =" ,myShare) # number of frames in float
 
     global st, en
     start = 0
@@ -167,11 +165,54 @@ def CPUjobscheduler(mynum):
 
     return start , end  
 
+def ping_check(clientsocket,host,port,h,mynum):
+    global file_rec_count
+    global count
+
+    while(True):
+        
+        if(file_rec_count ==count): # start to ping when file received , pings during rendering 
+            break 
+ 
+    print(port,h)
+    count =0
+    while(True):
+        #res = os.system(["ping -c 1 " + str(hnam)])
+        res = subprocess.check_output(["ping" , "-c" , "1", h[:-1]]) # sends one ping to connected host (client) 
+        #if(res ==0):
+        print(res)
+        if res==1: # if down (returns 1 for down 0 for success) 
+            count = count+1
+        
+        else:
+            count =0
+        if(count >=10):
+            failedClient(clientsocket,port,h,mynum)
+            break
+
+        break
+        time.sleep(3) # pings in every 3 sec
+    
+    clientsocket.close()
+    
+    
+def failedClient(clientsocket,port, h,mynum):
+    global client
+    print("Client number " , mynum , " crashed")
+    s = startEnd[mynum-1][0]
+    e = startEnd[mynum-1][1]
+    failiure.append([mynum,s,e])
+    l = len(startEnd)
+
+    subprocess.call(['blender', '-b' ,'move.blend', '-o' ,'//rec/render_','-s',str(start), '-e' , str(end),'-F', 'MPEG' ,'-x' ,'1', '-a'])
+
+
 
 s = socket.socket()  
 s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)      
 #host = socket.gethostname() 
-port = 50000               
+port = 50000
+             
 fileUrl = '/home/sominee/Desktop/distributed_system/movie.blend'
 print 'Server started!'
 while(True):
@@ -184,8 +225,8 @@ while(True):
 
 print 'enter the number of total frames you want to render - '
 Tframes = int(raw_input("->")) 
-print('enter the output format. Type 1 for PNG, 2 for mkv')
-format = int(raw_input())
+#print('enter the output format. Type 1 for PNG, 2 for mkv')
+#format = int(raw_input())
 print 'set your time to connect all clients'
 waittime = int(raw_input())
 print 'Waiting for clients... Connect all clients within ' + str(waittime)   +' sec'
@@ -194,7 +235,7 @@ print 'Waiting for clients... Connect all clients within ' + str(waittime)   +' 
 
 s.bind(('', port))       
 s.listen(5)                
-
+host = socket.gethostname()
 mynum = 0
 while True:
    c, addr = s.accept()     
@@ -204,8 +245,11 @@ while True:
 
    print 'Got connection from', addr
    print 'Total number of connections = ' , count
+   clientHostName = c.recv(1024)
+   print("Client = " ,clientHostName )
    
-   thread.start_new_thread(on_new_client,(c,addr,filename,mynum,waittime,format))
+   thread.start_new_thread(on_new_client,(c,addr,filename,mynum,waittime))
+   #thread.start_new_thread(ping_check,(c,host,addr[1],clientHostName,mynum))
 
 
 
